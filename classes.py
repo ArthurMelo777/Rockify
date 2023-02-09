@@ -1,5 +1,5 @@
 from os import system
-import time
+import json
 
 class Musica:
     def __init__ (self, id, nome, album, banda):
@@ -7,13 +7,9 @@ class Musica:
         self.nome = nome
         self.album = album
         self.banda = banda
-        self.idPlaylist = 0
     
-    def __str__ (self):
-        possuiPlaylist = 'Não possui playlist!'
-        if (self.idPlaylist != 0): possuiPlaylist = 'Possui playlist!'
-        
-        return f'{self.nome} - {self.banda} | {self.album} | {possuiPlaylist}'
+    def __str__(self):
+        return f'{self.nome} - {self.banda} | {self.album}'
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -33,40 +29,54 @@ class NMusica:
         removeu = False
         for musica in cls.musicas:
             if (m.id == musica.id):
-                cls.musicas.remove(m)
+                cls.musicas.remove(musica)
                 removeu = True
         
         return removeu
     
     @classmethod
-    def countMusicas (cls, id):
-        numMusicas = 0
-        for musica in cls.musicas:
-            if (musica.idPlaylist == id): numMusicas += 1
-        
-        return numMusicas
+    def salvar(cls):
+        with open('./musicas.json', mode="w") as arquivo:
+            json.dump(cls.musicas, arquivo, default=lambda m: m.__dict__)
+
+    @classmethod
+    def abrir(cls):
+        cls.musicas = []
+        with open('./musicas.json', mode="r") as arquivo:
+            musicas_json = json.load(arquivo)
+            for m in musicas_json:
+                musica = Musica(m['id'], m['nome'], m['album'], m['banda'])
+                cls.musicas.append(musica)
 
 # -------------------------------------------------------------------------------------------------------------
 
-class listPlaylistItems:
-    musicas_playlist = []
+class PlayListItem:
+    def __init__(self, id, musicaId, playlistId):
+        self.id = id
+        self.musicaId = musicaId
+        self.playlistId = playlistId
+
+# -------------------------------------------------------------------------------------------------------------
+
+class NPlayListItems:
+    items = []
     
     @classmethod
-    def addMusPlay (cls, musica, playlist):
-        musica.idPlaylist = playlist.id
-        cls.musicas_playlist.append(musica)
-    
+    def inserir_musica_playlist(cls, musica, playlist):
+        if (len(cls.items) == 0): id = 0
+        else: id = len(cls.items) + 1
+        item = PlayListItem(id, musica.id, playlist.id)
+        cls.items.append(item)
+
     @classmethod
-    def removeMusPlay (cls, musica):
-        musica.idPlaylist = 0
-        cls.musicas_playlist.remove(musica)
-    
-    @classmethod
-    def removerMusicas (cls, playlist):
-        playlists = NPlaylist.listar()
-        for i in range(len(playlists)):
-            if (cls.musicas_playlist[i].idPlaylist == playlist.id):
-                cls.musicas_playlist.remove(cls.musicas_playlist[i])
+    def remover_musica_playlist(cls, musica, playlist):
+        removeu = False
+        for item in cls.items:
+            if (musica.id == item.musicaId and playlist.id == item.playlistId):
+                removeu = True
+                cls.items.remove(item)
+        
+        return removeu
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -77,7 +87,7 @@ class Playlist:
         self.idUsuario = 0
         
     def __str__ (self):
-        return f'{self.nome} | Musicas: {NMusica.countMusicas(id)}'
+        return f'{self.nome}'
         
 # -------------------------------------------------------------------------------------------------------------
 
@@ -97,18 +107,24 @@ class NPlaylist:
         removeu = False
         for playlist in cls.playlists:
             if (p.id == playlist.id):
-                cls.playlists.remove(p)
+                cls.playlists.remove(playlist)
                 removeu = True
         
         return removeu
     
     @classmethod
-    def countPlaylists (cls, id):
-        numPlaylists = 0
-        for playlist in cls.playlists:
-            if (playlist.idUsuario == id): numPlaylists += 1
-        
-        return numPlaylists
+    def salvar(cls):
+        with open('./playlists.json', mode="w") as arquivo:
+            json.dump(cls.playlists, arquivo, default=lambda p: p.__dict__)
+
+    @classmethod
+    def abrir(cls):
+        cls.playlists = []
+        with open('./playlists.json', mode="r") as arquivo:
+            playlists_json = json.load(arquivo)
+            for p in playlists_json:
+                playlist = Playlist(p['id'], p['nome'])
+                cls.playlists.append(playlist)
 
 # -------------------------------------------------------------------------------------------------------------
    
@@ -119,7 +135,7 @@ class Usuario:
         self.idUsuario = 0
         
     def __str__ (self):
-        return f'{self.nome} | Playlists: {NPlaylist.countPlaylists(self.id)}'
+        return f'{self.nome}'
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -139,14 +155,24 @@ class NUsuario:
         removeu = False
         for usuario in cls.usuarios:
             if (u.id == usuario.id):
-                cls.usuarios.remove(u)
+                cls.usuarios.remove(usuario)
                 removeu = True
         
         return removeu
-    
+
     @classmethod
-    def countUsuarios (cls, id):
-        return len(cls.usuarios)
+    def salvar(cls):
+        with open('./usuarios.json', mode="w") as arquivo:
+            json.dump(cls.usuarios, arquivo, default=lambda u: u.__dict__)
+
+    @classmethod
+    def abrir(cls):
+        cls.usuarios = []
+        with open('./usuarios.json', mode="r") as arquivo:
+            usuarios_json = json.load(arquivo)
+            for p in usuarios_json:
+                usuario = Usuario(p['id'], p['nome'])
+                cls.usuarios.append(usuario)
 
 # -------------------------------------------------------------------------------------------------------------
 
@@ -185,6 +211,7 @@ Escolha uma opção abaixo:
         print('Digite, respectivamente: id, nome, album e banda da musica: ')
         m = Musica(int(input()), input(), input(), input())
         NMusica.inserir(m)
+        NMusica.salvar()
         print('Musica inserida com sucesso!')
         
     def removeMusica (self):
@@ -206,13 +233,14 @@ Escolha uma opção abaixo:
         musicas = NMusica.listar()
         for i in range(len(musicas)):
             print(f'{i+1} - {musicas[i]}')
-        input()
+        input('Press qqr tecla')
         
     def addPlaylist (self):
         system('cls')
         print('Digite, respectivamente: id e nome da playlist: ')
         p = Playlist(int(input()), input())
         NPlaylist.inserir(p)
+        NPlaylist.salvar()
         print('Playlist inserida com sucesso!')
         
     def removePlaylist (self):
@@ -234,12 +262,13 @@ Escolha uma opção abaixo:
         playlists = NPlaylist.listar()
         for i in range(len(playlists)):
             print(f'{i+1} - {playlists[i]}')
-        input()
+        input('Press qqr tecla')
             
     def addUsuario (self):
         print('Digite, respectivamente: id e nome do usuario: ')
         u = Usuario(int(input()), input())
         NUsuario.inserir(u)
+        NUsuario.salvar()
         print('Usuario inserido com sucesso!')
         
     def removeUsuario (self):
@@ -261,7 +290,7 @@ Escolha uma opção abaixo:
         usuarios = NUsuario.listar()
         for i in range(len(usuarios)):
             print(f'{i+1} - {usuarios[i]}')
-        input()
+        input('Press qqr tecla')
             
     def addMusicaPlay (self):
         system('cls')
@@ -272,12 +301,17 @@ Escolha uma opção abaixo:
         system('cls')
         self.listPlaylist()
         opc2 = int(input('Escolha uma playlist acima: '))
-        listPlaylistItems.addMusPlay(musicas[opc-1], playlists[opc2-1])
+        NPlayListItems.inserir_musica_playlist(musicas[opc-1], playlists[opc2-1])
         print(f'{musicas[opc-1].nome} foi adicionada com sucesso a {playlists[opc2-1].nome}!')
         
     def removeMusicaPlay (self):
+        system('cls')
         musicas = NMusica.listar()
+        playlists = NPlaylist.listar()
         self.listMusica()
         opc = int(input('Escolha uma musica acima: '))
-        listPlaylistItems.removeMusPlay(musicas[opc-1])
-        print(f'{musicas[opc-1].nome} foi removida com sucesso das playlists correspondentes!')
+        system('cls')
+        self.listPlaylist()
+        opc2 = int(input('Escolha uma playlist acima: '))
+        NPlayListItems.remover_musica_playlist(musicas[opc-1], playlists[opc2-1])
+        print(f'{musicas[opc-1].nome} foi adicionada com sucesso a {playlists[opc2-1].nome}!')
